@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
-import { Clock, Play, Pause, SkipForward, Monitor, Smartphone, Tv, Send, FileUp, StopCircle, RotateCcw, Edit2, Check, User as UserIcon, Trash2, X, PlayCircle, PauseCircle, StopCircle as StopCircleIcon, RotateCcw as RotateCcwIcon, SkipForward as SkipForwardIcon, BarChart2 } from 'lucide-react'
+import { Play, Pause, SkipForward, Monitor, Smartphone, Tv, FileUp, StopCircle, RotateCcw, Edit2, Check, User as UserIcon, Trash2, X, PlayCircle, PauseCircle, StopCircle as StopCircleIcon, RotateCcw as RotateCcwIcon, SkipForward as SkipForwardIcon, BarChart2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { onAuthStateChanged, User, signOut } from 'firebase/auth'
 import { doc, onSnapshot, updateDoc, setDoc, collection, query, orderBy, addDoc, getDoc, deleteDoc, getDocs, deleteDoc as firestoreDeleteDoc } from 'firebase/firestore'
@@ -47,14 +47,14 @@ interface Message {
 // Update UserRole type
 type UserRole = 'admin' | 'user';
 
-interface YourStateType {
+/*interface YourStateType {
   title: string;
   timers: Timer[];
   eventProgress: number;
   activeTimer: number;
   totalDuration: number; // Add this line
 }
-
+*/
 // Add this helper function at the top of your file, outside the component
 const calculateActualDuration = (timer: Timer): number => {
   console.log('Calculating actual duration for timer:', timer);
@@ -79,7 +79,7 @@ const calculateActualDuration = (timer: Timer): number => {
 export default function StageCueApp() {
   const { auth, firestore } = useFirebase();
   const router = useRouter()
-  const [isLoading, setIsLoading] = useState(true)
+  const [_isLoading,setIsLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
   const [eventTitle, setEventTitle] = useState("Demo Event: Pawnee Townhall")
   const [isEditingTitle, setIsEditingTitle] = useState(false)
@@ -87,16 +87,16 @@ export default function StageCueApp() {
   const [activeTimer, setActiveTimer] = useState(0)
   const [timers, setTimers] = useState<Timer[]>([])
   // Add the new state variable here
-  const [isFirestoreLoaded, setIsFirestoreLoaded] = useState(false);
+  const [_isFirestoreLoaded, setIsFirestoreLoaded] = useState(false);
   const [connectedDevices, setConnectedDevices] = useState<ConnectedDevice[]>([])
   const [messages, setMessages] = useState<Message[]>([])
-  const [eventProgress, setEventProgress] = useState(0)
+  const [_eventProgress, setEventProgress] = useState(0)
   const [editingTimer, setEditingTimer] = useState<number | null>(null)
   const intervalRefs = useRef<{ [key: number]: NodeJS.Timeout | null }>({})
-  const [totalDuration, setTotalDuration] = useState(0)
-  const [elapsedTime, setElapsedTime] = useState(0)
+  const [_totalDuration, setTotalDuration] = useState(0)
+  const [_elapsedTime, setElapsedTime] = useState(0)
   const [userRole, setUserRole] = useState<UserRole>('user')
-  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
+  const [_isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [messageType, setMessageType] = useState<'info' | 'alert' | 'question'>('info');
   const countdownWindowRef = useRef<Window | null>(null);

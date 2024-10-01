@@ -73,7 +73,7 @@ export default function Login() {
     }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
+  /*const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth) {
       console.error("Auth is not initialized");
@@ -89,7 +89,7 @@ export default function Login() {
       // Handle the error (e.g., show an error message to the user)
     }
   };
-
+*/
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <Card className="w-full max-w-md">

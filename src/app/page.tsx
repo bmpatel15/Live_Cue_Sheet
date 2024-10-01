@@ -2,8 +2,8 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useFirebase } from '@/contexts/FirebaseContext'
-import { onAuthStateChanged } from 'firebase/auth'
+//import { useFirebase } from '@/contexts/FirebaseContext'
+//import { onAuthStateChanged } from 'firebase/auth'
 
 export default function Home() {
   const router = useRouter()
