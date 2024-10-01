@@ -21,6 +21,7 @@ export default function AdminPanel() {
 
   const fetchUsers = async () => {
     try {
+      if (!firestore) throw new Error("Firestore is not initialized");
       const usersCollection = collection(firestore, 'users');
       const userSnapshot = await getDocs(usersCollection);
       const userList = userSnapshot.docs.map(doc => ({
@@ -36,6 +37,7 @@ export default function AdminPanel() {
   const toggleUserRole = async (userId: string, currentRole: 'admin' | 'user') => {
     const newRole = currentRole === 'admin' ? 'user' : 'admin';
     try {
+      if (!firestore) throw new Error("Firestore is not initialized");
       const userRef = doc(firestore, 'users', userId);
       await updateDoc(userRef, { role: newRole });
       setUsers(users.map(user => 

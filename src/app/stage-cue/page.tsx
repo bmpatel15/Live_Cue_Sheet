@@ -163,7 +163,7 @@ export default function StageCueApp() {
   }, [user, firestore]);
 
   useEffect(() => {
-    if (user) {
+    if (user && firestore) {
       const devicesRef = collection(firestore, 'connectedDevices');
       const q = query(devicesRef, orderBy('lastSeen', 'desc'));
       
@@ -242,7 +242,13 @@ export default function StageCueApp() {
     router.push('/admin');
   };
 
-  const updateEventData = async (updates: Partial<{ title: string, timers: Timer[], eventProgress: number, activeTimer: number }>) => {
+  const updateEventData = async (updates: Partial<{ 
+    title: string, 
+    timers: Timer[], 
+    eventProgress: number, 
+    activeTimer: number,
+    totalDuration: number  // Add this line
+  }>) => {
     if (!firestore || !user) return;
     const eventRef = doc(firestore, 'events', 'currentEvent');
     try {
@@ -261,14 +267,14 @@ export default function StageCueApp() {
   };
 
   const addMessage = async (message: Omit<Message, 'id'>) => {
-    if (user) {
+    if (user && firestore) {
       const messagesRef = collection(firestore, 'events', 'currentEvent', 'messages');
       await addDoc(messagesRef, message);
     }
   };
 
   useEffect(() => {
-    if (user) {
+    if (user && firestore) {
       const messagesRef = collection(firestore, 'events', 'currentEvent', 'messages');
       const q = query(messagesRef, orderBy('timestamp', 'desc'));
       
@@ -398,6 +404,9 @@ export default function StageCueApp() {
             remainingTime: durationToSeconds(duration),
             actualDuration: 0,
             startedAt: null,
+            actualStartTime: null,
+            actualEndTime: null,
+            elapsedTime: 0
           };
         });
 
@@ -663,7 +672,8 @@ export default function StageCueApp() {
     await updateEventData({ 
       timers: updatedTimers, 
       eventProgress: newEventProgress,
-      totalDuration: newTotalDuration
+      totalDuration: newTotalDuration,
+      activeTimer: activeTimer  // Add this line to include the current active timer
     });
   };
 
@@ -706,6 +716,10 @@ export default function StageCueApp() {
   };
 
   const handleLogout = async () => {
+    if (!auth) {
+      console.error('Auth is not initialized');
+      return;
+    }
     try {
       await signOut(auth);
       router.push('/login');
@@ -724,6 +738,10 @@ export default function StageCueApp() {
   };
 
   const connectDevice = async (name: string, type: ConnectedDevice['type']) => {
+    if (!firestore) {
+      console.error('Firestore is not initialized.');
+      return;
+    }
     const devicesRef = collection(firestore, 'connectedDevices');
     const docRef = await addDoc(devicesRef, {
       name,
@@ -734,13 +752,17 @@ export default function StageCueApp() {
   };
 
   const disconnectDevice = async (id: string) => {
+    if (!firestore) {
+      console.error('Firestore is not initialized.');
+      return;
+    }
     const deviceRef = doc(firestore, 'connectedDevices', id);
     await deleteDoc(deviceRef);
   };
 
   // Add the new function here
   const updateDeviceLastSeen = async (id: string | null) => {
-    if (!id) return; // Exit if id is null
+    if (!id || !firestore) return; // Exit if id is null or firestore is not initialized
     const deviceRef = doc(firestore, 'connectedDevices', id);
     try {
       await updateDoc(deviceRef, {
@@ -1003,6 +1025,46 @@ export default function StageCueApp() {
     XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
 
     XLSX.writeFile(workbook, 'cue_analytics.xlsx');
+  };
+
+  // Add this function near the other timer-related functions
+  const resetTimer = async (id: number) => {
+    const updatedTimers = timers.map(timer => {
+      if (timer.id === id) {
+        return {
+          ...timer,
+          isRunning: false,
+          remainingTime: durationToSeconds(timer.duration),
+          actualStartTime: null,
+          actualEndTime: null,
+          actualDuration: 0,
+          startedAt: null,
+          elapsedTime: 0
+        };
+      }
+      return timer;
+    });
+
+    setTimers(updatedTimers);
+
+    // Clear the interval for this timer if it exists
+    if (intervalRefs.current[id]) {
+      clearInterval(intervalRefs.current[id]!);
+      intervalRefs.current[id] = null;
+    }
+
+    // Recalculate event progress
+    const newEventProgress = calculateEventProgress(updatedTimers);
+    setEventProgress(newEventProgress);
+
+    // Update Firestore
+    await updateEventData({ 
+      timers: updatedTimers, 
+      eventProgress: newEventProgress
+    });
+
+    // Update the countdown window
+    updateCountdownWindow();
   };
 
   return (

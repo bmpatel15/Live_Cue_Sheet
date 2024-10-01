@@ -75,11 +75,15 @@ export default function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth) {
+      console.error("Auth is not initialized");
+      return;
+    }
     try {
-      // Your existing login logic here
       const result = await signInWithEmailAndPassword(auth, email, password);
       console.log("Login successful", result);
       // Redirect or update state as needed
+      router.push('/stage-cue');
     } catch (error) {
       console.error("Login error:", error);
       // Handle the error (e.g., show an error message to the user)
