@@ -1094,7 +1094,7 @@ export default function StageCueApp() {
               </Button>
             </h1>
           )}
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center justify-center sm:justify-end space-x-2 space-y-2 sm:space-y-0 mt-2 sm:mt-0">
             <div className="flex items-center mr-4">
               <UserIcon className="h-4 w-4 mr-2" />
               <span className="text-sm">{user?.email}</span>
@@ -1142,7 +1142,7 @@ export default function StageCueApp() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           <CountdownDisplay
             activeTimerData={timers[activeTimer]}
             currentTime={currentTime}
@@ -1258,26 +1258,25 @@ export default function StageCueApp() {
 
           {/* Master Control Buttons */}
           <div className="lg:col-span-3 mb-4">
-            <div className="flex justify-center space-x-4">
-              <Button onClick={playAll} variant="outline" size="lg">
-                <PlayCircle className="h-6 w-6" />
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button onClick={playAll} variant="outline" size="sm" className="flex-grow sm:flex-grow-0">
+                <PlayCircle className="h-5 w-5 sm:h-6 sm:w-6" />
               </Button>
-              <Button onClick={pauseAll} variant="outline" size="lg">
-                <PauseCircle className="h-6 w-6" />
+              <Button onClick={pauseAll} variant="outline" size="sm" className="flex-grow sm:flex-grow-0">
+                <PauseCircle className="h-5 w-5 sm:h-6 sm:w-6" />
               </Button>
-              <Button onClick={stopAll} variant="outline" size="lg">
-                <StopCircleIcon className="h-6 w-6" />
+              <Button onClick={stopAll} variant="outline" size="sm" className="flex-grow sm:flex-grow-0">
+                <StopCircleIcon className="h-5 w-5 sm:h-6 sm:w-6" />
               </Button>
-              <Button onClick={resetAllTimers} variant="outline" size="lg">
-                <RotateCcwIcon className="h-6 w-6" />
+              <Button onClick={resetAllTimers} variant="outline" size="sm" className="flex-grow sm:flex-grow-0">
+                <RotateCcwIcon className="h-5 w-5 sm:h-6 sm:w-6" />
               </Button>
-              <Button onClick={nextAll} variant="outline" size="lg">
-                <SkipForwardIcon className="h-6 w-6" />
+              <Button onClick={nextAll} variant="outline" size="sm" className="flex-grow sm:flex-grow-0">
+                <SkipForwardIcon className="h-5 w-5 sm:h-6 sm:w-6" />
               </Button>
-              {/* Add the Export Analytics button here */}
-              <Button onClick={exportAnalytics} variant="outline" size="lg" className="bg-blue-500 text-white hover:bg-blue-600">
-                <BarChart2 className="h-6 w-6 mr-2" />
-                Export Analytics
+              <Button onClick={exportAnalytics} variant="outline" size="sm" className="flex-grow sm:flex-grow-0 bg-blue-500 text-white hover:bg-blue-600">
+                <BarChart2 className="h-5 w-5 sm:h-6 sm:w-6 mr-2" />
+                <span className="hidden sm:inline">Export Analytics</span>
               </Button>
             </div>
           </div>
@@ -1318,13 +1317,13 @@ export default function StageCueApp() {
                 </div>
                 <div className="overflow-y-auto max-h-[calc(100vh-30rem)]">
                   <div className="overflow-x-auto">
-                    <table className="w-full">
+                    <table className="w-full table-auto">
                       <thead className="sticky top-0 bg-white">
                         <tr className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          <th className="px-2 py-3">Time</th>
-                          <th className="px-2 py-3">Duration</th>
+                          <th className="px-2 py-3 whitespace-nowrap">Time</th>
+                          <th className="px-2 py-3 whitespace-nowrap">Duration</th>
                           <th className="px-2 py-3">Cue Name</th>
-                          <th className="px-2 py-3">Presenter</th>
+                          <th className="px-2 py-3 hidden sm:table-cell">Presenter</th>
                           <th className="px-2 py-3">Actions</th>
                         </tr>
                       </thead>
@@ -1382,7 +1381,7 @@ export default function StageCueApp() {
                                   timer.title
                                 )}
                               </td>
-                              <td className="px-2 py-4 whitespace-nowrap">
+                              <td className="px-2 py-4 whitespace-nowrap hidden sm:table-cell">
                                 {editingTimer === timer.id ? (
                                   <Input
                                     value={timer.speaker}
