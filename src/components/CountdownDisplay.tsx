@@ -20,7 +20,6 @@ interface CountdownDisplayProps {
 const CountdownDisplay: React.FC<CountdownDisplayProps> = ({
   activeTimerData,
   currentTime,
-  isRunning,
   isUnder60Seconds,
   isOvertime,
   formatTime,

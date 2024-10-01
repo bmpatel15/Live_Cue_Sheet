@@ -10,7 +10,7 @@ import * as XLSX from 'xlsx'
 import { onAuthStateChanged, User, signOut } from 'firebase/auth'
 import { doc, onSnapshot, updateDoc, setDoc, collection, query, orderBy, addDoc, getDoc, deleteDoc, getDocs, deleteDoc as firestoreDeleteDoc } from 'firebase/firestore'
 import { useFirebase } from '@/contexts/FirebaseContext'
-import AdminPanel from '@/components/AdminPanel'
+//import AdminPanel from '@/components/AdminPanel'
 import { FirebaseError } from 'firebase/app'
 import CountdownDisplay from '@/components/CountdownDisplay'
 
@@ -79,7 +79,8 @@ const calculateActualDuration = (timer: Timer): number => {
 export default function StageCueApp() {
   const { auth, firestore } = useFirebase();
   const router = useRouter()
-  const [_isLoading,setIsLoading] = useState(true)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [, setIsLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
   const [eventTitle, setEventTitle] = useState("Demo Event: Pawnee Townhall")
   const [isEditingTitle, setIsEditingTitle] = useState(false)
@@ -87,16 +88,16 @@ export default function StageCueApp() {
   const [activeTimer, setActiveTimer] = useState(0)
   const [timers, setTimers] = useState<Timer[]>([])
   // Add the new state variable here
-  const [_isFirestoreLoaded, setIsFirestoreLoaded] = useState(false);
+  const [, setIsFirestoreLoaded] = useState(false);
   const [connectedDevices, setConnectedDevices] = useState<ConnectedDevice[]>([])
   const [messages, setMessages] = useState<Message[]>([])
-  const [_eventProgress, setEventProgress] = useState(0)
+  const [, setEventProgress] = useState(0)
   const [editingTimer, setEditingTimer] = useState<number | null>(null)
   const intervalRefs = useRef<{ [key: number]: NodeJS.Timeout | null }>({})
-  const [_totalDuration, setTotalDuration] = useState(0)
-  const [_elapsedTime, setElapsedTime] = useState(0)
+  const [, setTotalDuration] = useState(0)
+  const [, setElapsedTime] = useState(0)
   const [userRole, setUserRole] = useState<UserRole>('user')
-  const [_isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
+  //const [, setIsAdminPanelOpen] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [messageType, setMessageType] = useState<'info' | 'alert' | 'question'>('info');
   const countdownWindowRef = useRef<Window | null>(null);
@@ -132,7 +133,7 @@ export default function StageCueApp() {
         console.log("Retrieved data from Firestore:", JSON.stringify(data, null, 2));
         setEventTitle(data.title || "New Event");
         if (data.timers && Array.isArray(data.timers)) {
-          setTimers(data.timers.map((timer: any) => ({
+          setTimers(data.timers.map((timer: Timer) => ({
             id: timer.id,
             startTime12: timer.startTime12,
             startTime: timer.startTime,
@@ -455,10 +456,10 @@ export default function StageCueApp() {
     if (typeof time === 'string') {
     const [timePart, modifier] = time.split(' ')
       if (!timePart || !modifier) return time
-      let [hours, minutes] = timePart.split(':')
+      const [hours, minutes] = timePart.split(':')
       if (!hours || !minutes) return time
       let hoursNum = parseInt(hours, 10)
-      let minutesNum = parseInt(minutes, 10)
+      const minutesNum = parseInt(minutes, 10)
       if (isNaN(hoursNum) || isNaN(minutesNum)) return time
       if (modifier.toLowerCase() === 'pm' && hoursNum < 12) {
       hoursNum += 12
@@ -637,10 +638,10 @@ export default function StageCueApp() {
     );
   };
 
-  const handleSaveTimer = async (id: number) => {
+  const handleSaveTimer = async () => {
     setEditingTimer(null);
     
-    let updatedTimers = [...timers];
+    const updatedTimers = [...timers];
     let currentStartTime = updatedTimers[0].startTime;
     let newTotalDuration = 0;
     
@@ -872,7 +873,7 @@ export default function StageCueApp() {
 
   const calculateNewStartTime = (previousEndTime: string, duration: string): string => {
     const [prevHours, prevMinutes] = previousEndTime.split(':').map(Number);
-    const [durationMinutes, durationSeconds] = duration.split(':').map(Number);
+    const [durationMinutes] = duration.split(':').map(Number);
     
     let newMinutes = prevMinutes + durationMinutes;
     let newHours = prevHours + Math.floor(newMinutes / 60);
@@ -1407,7 +1408,7 @@ export default function StageCueApp() {
                                     <SkipForward className="h-4 w-4" />
                                   </Button>
                                   {editingTimer === timer.id ? (
-                                    <Button variant="ghost" size="sm" onClick={() => handleSaveTimer(timer.id)}>
+                                    <Button variant="ghost" size="sm" onClick={() => handleSaveTimer()}>
                                       <Check className="h-4 w-4" />
                                     </Button>
                                   ) : (
