@@ -45,7 +45,7 @@ interface Message {
 }
 
 // Update UserRole type
-type UserRole = 'admin' | 'user';
+//type UserRole = 'admin' | 'user';
 
 /*interface YourStateType {
   title: string;
@@ -78,7 +78,7 @@ const durationToSeconds = (duration: string): number => {
 };
 */
 export default function StageCueApp() {
-  const { auth, firestore } = useFirebase();
+  const { auth, firestore, userRole } = useFirebase();
   const router = useRouter()
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [, setIsLoading] = useState(true)
@@ -97,13 +97,15 @@ export default function StageCueApp() {
   const intervalRefs = useRef<{ [key: number]: NodeJS.Timeout | null }>({})
   const [, setTotalDuration] = useState(0)
   const [, setElapsedTime] = useState(0)
-  const [userRole, setUserRole] = useState<UserRole>('user')
+  //const [userRole, setUserRole] = useState<UserRole>('user')
   //const [, setIsAdminPanelOpen] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [messageType, setMessageType] = useState<'info' | 'alert' | 'question'>('info');
   const countdownWindowRef = useRef<Window | null>(null);
   // Add this new state variable
   const [totalElapsedTime, setTotalElapsedTime] = useState(0);
+
+  console.log("Current user role in StageCueApp:", userRole); // Add this line
 
   useEffect(() => {
     if (!auth || !firestore) {
@@ -213,28 +215,31 @@ export default function StageCueApp() {
       const userRef = doc(firestore, `users/${userId}`);
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
-        const userData = userSnap.data();
-        setUserRole(userData.role as UserRole);
+        //const userData = userSnap.data();
+        //setUserRole(userData.role as UserRole);
       } else {
-        setUserRole('user'); // Default to 'user' if no role is set
+        //setUserRole('user'); // Default to 'user' if no role is set
       }
     } catch (error) {
       console.error("Error fetching user role:", error);
-      setUserRole('user'); // Default to 'user' on error
+      //setUserRole('user'); // Default to 'user' on error
     }
   };
 
   // Update the hasPermission function
-  const hasPermission = (action: 'edit' | 'reset' | 'addMessage' | 'viewDevices' | 'upload' | 'adminPanel'): boolean => {
+  const hasPermission = (action: 'edit' | 'reset' | 'addMessage' | 'viewDevices' | 'upload' | 'adminPanel' | 'export'): boolean => {
+    console.log("Checking permission for action:", action, "User role:", userRole); // Add this line
     switch (action) {
       case 'adminPanel':
         return userRole === 'admin';
       case 'edit':
       case 'reset':
       case 'upload':
+      case 'export':
+        return userRole === 'admin' || userRole === 'program_director';
       case 'addMessage':
       case 'viewDevices':
-        return true;
+        return userRole !== 'user';
       default:
         return false;
     }
@@ -1270,10 +1275,12 @@ export default function StageCueApp() {
               <Button onClick={nextAll} variant="outline" size="sm" className="flex-grow sm:flex-grow-0">
                 <SkipForwardIcon className="h-5 w-5 sm:h-6 sm:w-6" />
               </Button>
-              <Button onClick={exportAnalytics} variant="outline" size="sm" className="flex-grow sm:flex-grow-0 bg-blue-500 text-white hover:bg-blue-600">
-                <BarChart2 className="h-5 w-5 sm:h-6 sm:w-6 mr-2" />
-                <span className="hidden sm:inline">Export Analytics</span>
-              </Button>
+              {hasPermission('export') && (
+                <Button onClick={exportAnalytics} variant="outline" size="sm" className="flex-grow sm:flex-grow-0 bg-blue-500 text-white hover:bg-blue-600">
+                  <BarChart2 className="h-5 w-5 sm:h-6 sm:w-6 mr-2" />
+                  <span className="hidden sm:inline">Export Analytics</span>
+                </Button>
+              )}
             </div>
           </div>
 
@@ -1295,20 +1302,35 @@ export default function StageCueApp() {
                     <Button variant="outline" size="sm" className="text-xs sm:text-sm bg-gray-200 text-gray-900 hover:bg-gray-300">
                       Flash
                     </Button>
-                    <label htmlFor="file-upload" className="cursor-pointer inline-flex items-center px-3 py-2 border border-transparent text-xs sm:text-sm font-medium rounded-md bg-gray-200 text-gray-900 hover:bg-gray-300">
-                      <FileUp className="h-4 w-4 mr-2" />
-                      Upload Cue Sheet
-                      <input id="file-upload" type="file" accept=".xlsx,.xls" onChange={handleFileUpload} className="sr-only" />
-                    </label>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="text-xs sm:text-sm bg-white text-red-600 hover:bg-red-100"
-                      onClick={resetAll}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Reset All
-                    </Button>
+                    {hasPermission('upload') && (
+                      <label htmlFor="file-upload" className="cursor-pointer inline-flex items-center px-3 py-2 border border-transparent text-xs sm:text-sm font-medium rounded-md bg-gray-200 text-gray-900 hover:bg-gray-300">
+                        <FileUp className="h-4 w-4 mr-2" />
+                        Upload Cue Sheet
+                        <input id="file-upload" type="file" accept=".xlsx,.xls" onChange={handleFileUpload} className="sr-only" />
+                      </label>
+                    )}
+                    {hasPermission('reset') && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-xs sm:text-sm bg-white text-red-600 hover:bg-red-100"
+                        onClick={resetAll}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Reset All
+                      </Button>
+                    )}
+                    {hasPermission('export') && (
+                      <Button 
+                        onClick={exportAnalytics} 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-xs sm:text-sm bg-blue-500 text-white hover:bg-blue-600"
+                      >
+                        <BarChart2 className="h-4 w-4 mr-2" />
+                        Export Analytics
+                      </Button>
+                    )}
                   </div>
                 </div>
                 <div className="overflow-y-auto max-h-[calc(100vh-30rem)]">

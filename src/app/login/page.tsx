@@ -35,7 +35,7 @@ export default function Login() {
     const userRef = doc(firestore, `users/${user.uid}`);
     const userSnap = await getDoc(userRef);
     
-    let userRole = 'user'; // Default role
+    let userRole: 'admin' | 'program_director' | 'user' = 'user'; // Default role
 
     if (!userSnap.exists()) {
       // Create new user document
@@ -47,6 +47,7 @@ export default function Login() {
       userRole = userSnap.data().role || 'user';
     }
     
+    console.log("User role set to:", userRole); // Add this line for debugging
     localStorage.setItem('userRole', userRole);
     localStorage.setItem('isAuthenticated', 'true');
     
