@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
-import { Play, Pause, SkipForward, Monitor, Smartphone, Tv, FileUp, StopCircle, RotateCcw, Edit2, Check, User as UserIcon, Trash2, X, PlayCircle, PauseCircle, StopCircle as StopCircleIcon, RotateCcw as RotateCcwIcon, SkipForward as SkipForwardIcon, BarChart2 } from 'lucide-react'
+import { Play, Pause, SkipForward, Monitor, Smartphone, Tv, FileUp, StopCircle, RotateCcw, Edit2, Check, User as UserIcon, Trash2, X, PlayCircle, PauseCircle, StopCircle as StopCircleIcon, RotateCcw as RotateCcwIcon, SkipForward as SkipForwardIcon, BarChart2, Laptop, Tablet, HelpCircle } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { onAuthStateChanged, User, signOut } from 'firebase/auth'
 import { doc, onSnapshot, updateDoc, setDoc, collection, query, orderBy, addDoc, getDoc, deleteDoc, getDocs, deleteDoc as firestoreDeleteDoc } from 'firebase/firestore'
@@ -33,8 +33,11 @@ interface Timer {
 interface ConnectedDevice {
   id: string
   name: string
-  type: 'monitor' | 'smartphone' | 'tv'
+  type: 'monitor' | 'smartphone' | 'tv' | 'laptop' | 'tablet' | 'other'
   lastSeen: Date
+  userId: string
+  userEmail: string
+  deviceName: string
 }
 
 interface Message {
@@ -77,6 +80,26 @@ const durationToSeconds = (duration: string): number => {
   return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
 };
 */
+// Add these new functions near the top of your file, outside of the component
+const getDeviceName = () => {
+  const userAgent = navigator.userAgent;
+  if (/Android/i.test(userAgent)) return 'Android Device';
+  if (/iPhone|iPad|iPod/i.test(userAgent)) return 'iOS Device';
+  if (/Windows/i.test(userAgent)) return 'Windows PC';
+  if (/Mac/i.test(userAgent)) return 'Mac';
+  return 'Unknown Device';
+};
+
+const getDeviceType = (): ConnectedDevice['type'] => {
+  const userAgent = navigator.userAgent;
+  if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
+    if (/tablet|ipad/i.test(userAgent)) return 'tablet';
+    return 'smartphone';
+  }
+  if (/Windows|Mac|Linux/i.test(userAgent)) return 'laptop';
+  return 'other';
+};
+
 export default function StageCueApp() {
   const { auth, firestore, userRole } = useFirebase();
   const router = useRouter()
@@ -186,19 +209,23 @@ export default function StageCueApp() {
   // Add the new useEffect here
   useEffect(() => {
     if (user) {
-      const deviceId = localStorage.getItem('deviceId');
-      if (!deviceId) {
-        connectDevice(`Device-${Math.random().toString(36).substr(2, 9)}`, 'smartphone')
+      const storedDeviceId = localStorage.getItem('deviceId');
+      const storedDeviceName = localStorage.getItem('deviceName');
+      const storedDeviceType = localStorage.getItem('deviceType') as ConnectedDevice['type'];
+
+      if (!storedDeviceId || !storedDeviceName || !storedDeviceType) {
+        const deviceName = getDeviceName();
+        const deviceType = getDeviceType();
+        connectDevice(deviceName, deviceType)
           .then((newDeviceId) => {
             if (newDeviceId) {
-              localStorage.setItem('deviceId', newDeviceId);
               updateDeviceLastSeen(newDeviceId);
             }
           });
       } else {
-        updateDeviceLastSeen(deviceId);
+        updateDeviceLastSeen(storedDeviceId);
         const interval = setInterval(() => {
-          updateDeviceLastSeen(deviceId);
+          updateDeviceLastSeen(storedDeviceId);
         }, 30000); // Update every 30 seconds
 
         return () => clearInterval(interval);
@@ -364,6 +391,12 @@ export default function StageCueApp() {
         return <Smartphone className="h-4 w-4" />
       case 'tv':
         return <Tv className="h-4 w-4" />
+      case 'laptop':
+        return <Laptop className="h-4 w-4" />
+      case 'tablet':
+        return <Tablet className="h-4 w-4" />
+      default:
+        return <HelpCircle className="h-4 w-4" />
     }
   }
 
@@ -739,18 +772,34 @@ export default function StageCueApp() {
     await updateEventData({ title: eventTitle });
   };
 
-  const connectDevice = async (name: string, type: ConnectedDevice['type']) => {
-    if (!firestore) {
-      console.error('Firestore is not initialized.');
-      return;
-    }
-    const devicesRef = collection(firestore, 'connectedDevices');
-    const docRef = await addDoc(devicesRef, {
-      name,
+  const connectDevice = async (deviceName: string, type: ConnectedDevice['type']) => {
+    if (!firestore || !user) return null;
+
+    const deviceId = `${user.uid}-${Date.now()}`;
+    const deviceRef = doc(firestore, 'connectedDevices', deviceId);
+    
+    const deviceData: ConnectedDevice = {
+      id: deviceId,
+      name: `${user.email || 'Unknown User'}'s ${deviceName}`,
       type,
-      lastSeen: new Date()
-    });
-    return docRef.id;
+      lastSeen: new Date(),
+      userId: user.uid,
+      userEmail: user.email || 'Unknown',
+      deviceName
+    };
+
+    try {
+      await setDoc(deviceRef, deviceData);
+      console.log("Device connected successfully");
+      // Store device info in localStorage
+      localStorage.setItem('deviceId', deviceId);
+      localStorage.setItem('deviceName', deviceName);
+      localStorage.setItem('deviceType', type);
+      return deviceId;
+    } catch (error) {
+      console.error("Error connecting device:", error);
+      return null;
+    }
   };
 
   const disconnectDevice = async (id: string) => {
@@ -764,7 +813,7 @@ export default function StageCueApp() {
 
   // Add the new function here
   const updateDeviceLastSeen = async (id: string | null) => {
-    if (!id || !firestore) return; // Exit if id is null or firestore is not initialized
+    if (!id || !firestore) return;
     const deviceRef = doc(firestore, 'connectedDevices', id);
     try {
       await updateDoc(deviceRef, {
@@ -772,11 +821,17 @@ export default function StageCueApp() {
       });
     } catch (error) {
       if ((error as FirebaseError).code === 'not-found') {
-        // If the document doesn't exist, create it
+        // If the document doesn't exist, create it using stored information
+        const storedDeviceName = localStorage.getItem('deviceName') || 'Unknown Device';
+        const storedDeviceType = localStorage.getItem('deviceType') as ConnectedDevice['type'] || 'other';
         await setDoc(deviceRef, {
-          name: `Device-${id}`,
-          type: 'smartphone', // Default type
-          lastSeen: new Date()
+          id,
+          name: `${user?.email || 'Unknown User'}'s ${storedDeviceName}`,
+          type: storedDeviceType,
+          lastSeen: new Date(),
+          userId: user?.uid || 'unknown',
+          userEmail: user?.email || 'Unknown',
+          deviceName: storedDeviceName
         });
       } else {
         console.error("Error updating device last seen:", error);
@@ -1174,7 +1229,20 @@ export default function StageCueApp() {
                 ))}
               </div>
               {hasPermission('edit') && (
-                <Button className="w-full mt-4 text-sm" onClick={() => connectDevice('New Device', 'smartphone')}>
+                <Button 
+                  className="w-full mt-4 text-sm" 
+                  onClick={() => {
+                    const deviceName = getDeviceName();
+                    const deviceType = getDeviceType();
+                    connectDevice(deviceName, deviceType).then((newDeviceId) => {
+                      if (newDeviceId) {
+                        localStorage.setItem('deviceId', newDeviceId);
+                        localStorage.setItem('deviceName', deviceName);
+                        localStorage.setItem('deviceType', deviceType);
+                      }
+                    });
+                  }}
+                >
                   Connect New Device
                 </Button>
               )}
