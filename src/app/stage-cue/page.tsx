@@ -57,25 +57,26 @@ type UserRole = 'admin' | 'user';
 */
 // Add this helper function at the top of your file, outside the component
 const calculateActualDuration = (timer: Timer): number => {
-  console.log('Calculating actual duration for timer:', timer);
   if (timer.actualStartTime && timer.actualEndTime) {
-    const duration = (timer.actualEndTime.getTime() - timer.actualStartTime.getTime()) / 1000;
-    console.log('Timer completed, duration:', duration);
-    return duration;
+    return (timer.actualEndTime.getTime() - timer.actualStartTime.getTime()) / 1000;
   }
   if (timer.actualStartTime && timer.isRunning) {
-    const duration = (new Date().getTime() - timer.actualStartTime.getTime()) / 1000;
-    console.log('Timer still running, current duration:', duration);
-    return duration;
+    return (new Date().getTime() - timer.actualStartTime.getTime()) / 1000;
   }
-  if (timer.actualStartTime && !timer.isRunning) {
-    console.log('Timer paused, elapsed time:', timer.elapsedTime);
-    return timer.elapsedTime;
-  }
-  console.log('Timer not started');
-  return 0;
+  return timer.elapsedTime || 0;
 };
 
+const durationToSeconds = (duration: string): number => {
+  const [minutes, seconds] = duration.split(':').map(Number);
+  return minutes * 60 + seconds;
+};
+
+/*const formatTime = (seconds: number): string => {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.floor(seconds % 60);
+  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+};
+*/
 export default function StageCueApp() {
   const { auth, firestore } = useFirebase();
   const router = useRouter()
@@ -488,11 +489,6 @@ export default function StageCueApp() {
     if (isNaN(hours) || isNaN(minutes) || isNaN(seconds)) return duration
     const totalMinutes = hours * 60 + minutes
     return `${totalMinutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-  }
-
-  const durationToSeconds = (duration: string): number => {
-    const [minutes, seconds] = duration.split(':').map(Number);
-    return minutes * 60 + seconds;
   }
 
   // Add the new function here
@@ -1000,7 +996,7 @@ export default function StageCueApp() {
         'Start Time': timer.startTime12,
         'Cue Name': timer.title,
         'Presenter': timer.speaker,
-        'Planned Duration': timer.duration,
+        'Planned Duration': formatTime(plannedDuration),
         'Actual Duration': formatTime(Math.round(actualDuration)),
         'Difference': formatTime(Math.abs(Math.round(difference))),
         'Status': status,
