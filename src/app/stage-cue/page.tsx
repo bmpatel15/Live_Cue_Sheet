@@ -5,28 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
-import { 
-  // Play, 
-  // Pause, 
-  // SkipForward, 
-  Monitor, 
-  Smartphone, 
-  Tv, 
-  FileUp, 
-  // StopCircle, 
-  // RotateCcw, 
-  Edit2, 
-  Check, 
-  User as UserIcon, 
-  Trash2, 
-  // X, 
-  PlayCircle, 
-  PauseCircle, 
-  StopCircle as StopCircleIcon, 
-  RotateCcw as RotateCcwIcon, 
-  SkipForward as SkipForwardIcon, 
-  BarChart2 
-} from 'lucide-react'
+import { Play, Pause, SkipForward, Monitor, Smartphone, Tv, FileUp, StopCircle, RotateCcw, Edit2, Check, User as UserIcon, Trash2, X, PlayCircle, PauseCircle, StopCircle as StopCircleIcon, RotateCcw as RotateCcwIcon, SkipForward as SkipForwardIcon, BarChart2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { onAuthStateChanged, User, signOut } from 'firebase/auth'
 import { doc, onSnapshot, updateDoc, setDoc, collection, query, orderBy, addDoc, getDoc, deleteDoc, getDocs, deleteDoc as firestoreDeleteDoc } from 'firebase/firestore'
@@ -92,13 +71,12 @@ const durationToSeconds = (duration: string): number => {
   return minutes * 60 + seconds;
 };
 
-// Add this function near the top of your file, with other utility functions
-const formatTime = (seconds: number): string => {
+/*const formatTime = (seconds: number): string => {
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = Math.floor(seconds % 60);
   return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
 };
-
+*/
 export default function StageCueApp() {
   const { auth, firestore, userRole } = useFirebase();
   const router = useRouter()
@@ -525,6 +503,182 @@ export default function StageCueApp() {
     return (totalActualDuration / totalPlannedDuration) * 100;
   };
 
+  // Update the startTimer function
+  const startTimer = async (id: number) => {
+    const updatedTimers = timers.map(timer => {
+      if (timer.id === id) {
+        const now = new Date();
+        console.log(`Starting timer ${id}`, { now });
+        return {
+          ...timer,
+          isRunning: true,
+          actualStartTime: timer.actualStartTime || now,
+          startedAt: now,
+          elapsedTime: timer.elapsedTime || 0
+        };
+      }
+      return timer;
+    });
+    setTimers(updatedTimers);
+    await updateEventData({ timers: updatedTimers });
+  };
+
+  // Update the pauseTimer function
+  const pauseTimer = async (id: number) => {
+    const updatedTimers = timers.map(timer => {
+      if (timer.id === id) {
+        const now = new Date();
+        const elapsedSinceStart = timer.startedAt ? (now.getTime() - timer.startedAt.getTime()) / 1000 : 0;
+        const totalElapsed = timer.elapsedTime + elapsedSinceStart;
+        console.log(`Pausing timer ${id}`, { now, elapsedSinceStart, totalElapsed });
+        return {
+          ...timer,
+          isRunning: false,
+          elapsedTime: totalElapsed,
+          startedAt: null
+        };
+      }
+      return timer;
+    });
+    setTimers(updatedTimers);
+    await updateEventData({ timers: updatedTimers });
+  };
+
+  // Update the stopTimer function
+  const stopTimer = async (id: number) => {
+    const updatedTimers = timers.map(timer => {
+      if (timer.id === id) {
+        const now = new Date();
+        const elapsedSinceStart = timer.startedAt ? (now.getTime() - timer.startedAt.getTime()) / 1000 : 0;
+        const totalElapsed = timer.elapsedTime + elapsedSinceStart;
+        console.log(`Stopping timer ${id}`, { now, elapsedSinceStart, totalElapsed });
+        return {
+          ...timer,
+          isRunning: false,
+          remainingTime: durationToSeconds(timer.duration),
+          elapsedTime: totalElapsed,
+          startedAt: null,
+          actualEndTime: now,
+          actualDuration: totalElapsed
+        };
+      }
+      return timer;
+    });
+    setTimers(updatedTimers);
+    await updateEventData({ timers: updatedTimers });
+  };
+
+  // Update the nextCue function
+  const nextCue = async (id: number) => {
+    const currentIndex = timers.findIndex(timer => timer.id === id);
+    if (currentIndex === -1) return;
+
+    const updatedTimers = timers.map((timer, index) => {
+      if (index === currentIndex) {
+        const now = new Date();
+        const elapsedSinceStart = timer.startedAt ? (now.getTime() - timer.startedAt.getTime()) / 1000 : 0;
+        const totalElapsed = timer.elapsedTime + elapsedSinceStart;
+        console.log(`Ending current timer ${id}`, { now, elapsedSinceStart, totalElapsed });
+        return {
+          ...timer,
+          isRunning: false,
+          remainingTime: 0,
+          elapsedTime: totalElapsed,
+          startedAt: null,
+          actualEndTime: now,
+          actualDuration: totalElapsed
+        };
+      }
+      if (index === currentIndex + 1) {
+        const now = new Date();
+        console.log(`Starting next timer ${timer.id}`, { now });
+        return {
+          ...timer,
+          isRunning: true,
+          actualStartTime: now,
+          startedAt: now,
+          elapsedTime: 0
+        };
+      }
+      return timer;
+    });
+
+    setTimers(updatedTimers);
+    setActiveTimer(currentIndex + 1);
+    const newEventProgress = calculateEventProgress(updatedTimers);
+    setEventProgress(newEventProgress);
+    await updateEventData({ timers: updatedTimers, eventProgress: newEventProgress, activeTimer: currentIndex + 1 });
+  };
+
+  const formatTime = (time: number): string => {
+    const absTime = Math.abs(time);
+    const minutes = Math.floor(absTime / 60);
+    const seconds = Math.floor(absTime % 60);
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const handleEditTimer = (id: number) => {
+    setEditingTimer(id);
+  };
+
+  const handleTimerChange = (id: number, field: keyof Timer, value: string) => {
+    setTimers((prevTimers) =>
+      prevTimers.map((timer) => {
+        if (timer.id === id) {
+          const updatedTimer = { ...timer, [field]: value };
+          if (field === 'startTime12') {
+            updatedTimer.startTime = convertTo24Hour(value);
+          } else if (field === 'duration') {
+            // Allow any input, but format it when saving
+            updatedTimer.duration = value;
+          }
+          return updatedTimer;
+        }
+        return timer;
+      })
+    );
+  };
+
+  const handleSaveTimer = async () => {
+    setEditingTimer(null);
+    
+    const updatedTimers = [...timers];
+    let currentStartTime = updatedTimers[0].startTime;
+    let newTotalDuration = 0;
+    
+    for (let i = 0; i < updatedTimers.length; i++) {
+      const timer = updatedTimers[i];
+      timer.startTime = currentStartTime;
+      timer.startTime12 = formatTo12Hour(currentStartTime);
+      
+      // Format the duration when saving
+      if (timer.duration) {
+        const [minutes, seconds] = timer.duration.replace(/[^0-9:]/g, '').split(':').map(Number);
+        timer.duration = `${minutes || 0}:${seconds ? seconds.toString().padStart(2, '0') : '00'}`;
+        timer.remainingTime = (minutes || 0) * 60 + (seconds || 0);
+        newTotalDuration += timer.remainingTime;
+      }
+      
+      if (i < updatedTimers.length - 1) {
+        currentStartTime = calculateNewStartTime(currentStartTime, timer.duration);
+      }
+    }
+
+    setTimers(updatedTimers);
+    setTotalDuration(newTotalDuration);
+
+    // Recalculate event progress
+    const newEventProgress = calculateEventProgress(updatedTimers);
+    setEventProgress(newEventProgress);
+
+    await updateEventData({ 
+      timers: updatedTimers, 
+      eventProgress: newEventProgress,
+      totalDuration: newTotalDuration,
+      activeTimer: activeTimer  // Add this line to include the current active timer
+    });
+  };
+
   // Update the renderProgressBar function
   const renderProgressBar = () => {
     const totalPlannedDuration = timers.reduce((acc, timer) => acc + durationToSeconds(timer.duration), 0);
@@ -710,18 +864,33 @@ export default function StageCueApp() {
     }
   };
 
-  // Commenting out unused functions
-  // const deleteMessage = (id: string) => {
-  //   // Implementation
-  // };
+  // Add this new function to delete a single message
+  const deleteMessage = async (messageId: string) => {
+    if (user && firestore) {
+      const messageRef = doc(firestore, 'events', 'currentEvent', 'messages', messageId);
+      await firestoreDeleteDoc(messageRef);
+    }
+  };
 
-  // const calculateNewStartTime = (index: number): string => {
-  //   // Implementation
-  // };
+  const calculateNewStartTime = (previousEndTime: string, duration: string): string => {
+    const [prevHours, prevMinutes] = previousEndTime.split(':').map(Number);
+    const [durationMinutes] = duration.split(':').map(Number);
+    
+    let newMinutes = prevMinutes + durationMinutes;
+    let newHours = prevHours + Math.floor(newMinutes / 60);
+    newMinutes %= 60;
+    newHours %= 24;
 
-  // const openCountdownInNewWindow = () => {
-  //   // Implementation
-  // };
+    return `${newHours.toString().padStart(2, '0')}:${newMinutes.toString().padStart(2, '0')}`;
+  };
+
+  const openCountdownInNewWindow = () => {
+    const countdownWindow = window.open('/countdown', 'Countdown Timer', 'width=1000,height=800');
+    if (countdownWindow) {
+      countdownWindowRef.current = countdownWindow;
+      updateCountdownWindow();
+    }
+  };
 
   // Update the updateCountdownWindow function
   const updateCountdownWindow = () => {
@@ -860,37 +1029,49 @@ export default function StageCueApp() {
     XLSX.writeFile(workbook, 'cue_analytics.xlsx');
   };
 
-  const getMessageTypeClass = (type: 'info' | 'alert' | 'question') => {
-    switch (type) {
-      case 'info':
-        return 'bg-blue-100 text-blue-800';
-      case 'alert':
-        return 'bg-red-100 text-red-800';
-      case 'question':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  // Add this function near the other timer-related functions
+  const resetTimer = async (id: number) => {
+    const updatedTimers = timers.map(timer => {
+      if (timer.id === id) {
+        return {
+          ...timer,
+          isRunning: false,
+          remainingTime: durationToSeconds(timer.duration),
+          actualStartTime: null,
+          actualEndTime: null,
+          actualDuration: 0,
+          startedAt: null,
+          elapsedTime: 0
+        };
+      }
+      return timer;
+    });
+
+    setTimers(updatedTimers);
+
+    // Clear the interval for this timer if it exists
+    if (intervalRefs.current[id]) {
+      clearInterval(intervalRefs.current[id]!);
+      intervalRefs.current[id] = null;
     }
-  };
 
-  const handleTimerChange = (id: number, field: keyof Timer, value: string) => {
-    setTimers(timers.map(timer => 
-      timer.id === id ? { ...timer, [field]: value } : timer
-    ));
-  };
+    // Recalculate event progress
+    const newEventProgress = calculateEventProgress(updatedTimers);
+    setEventProgress(newEventProgress);
 
-  const handleSaveTimer = () => {
-    setEditingTimer(null);
-    // Here you might want to add logic to save the timer to your backend or state management
-  };
+    // Update Firestore
+    await updateEventData({ 
+      timers: updatedTimers, 
+      eventProgress: newEventProgress
+    });
 
-  const handleEditTimer = (id: number) => {
-    setEditingTimer(id);
+    // Update the countdown window
+    updateCountdownWindow();
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
-      <div className="container mx-auto">
+    <div className="min-h-screen bg-gray-100">
+      <div className="container mx-auto p-2 sm:p-4">
         <header className="flex flex-col sm:flex-row justify-between items-center mb-4 sm:mb-6">
           {isEditingTitle ? (
             <Input
@@ -962,61 +1143,122 @@ export default function StageCueApp() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-6">
-          {/* Countdown Display and Messages Card */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Countdown Display */}
-            <div className="w-full">
-              <CountdownDisplay
-                activeTimerData={timers[activeTimer]}
-                currentTime={currentTime}
-                formatTime={formatTime}
-              />
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <CountdownDisplay
+            activeTimerData={timers[activeTimer]}
+            currentTime={currentTime}
+            isRunning={timers[activeTimer]?.isRunning || false}
+            isUnder60Seconds={(timers[activeTimer]?.remainingTime || 0) > 0 && (timers[activeTimer]?.remainingTime || 0) <= 60}
+            isOvertime={(timers[activeTimer]?.remainingTime || 0) <= 0}
+            formatTime={formatTime}
+            openCountdownInNewWindow={openCountdownInNewWindow}
+          />
 
-            {/* Messages Card */}
-            <div className="w-full">
-              <Card className="bg-white text-gray-900 h-full">
-                <CardContent className="p-4">
-                  <h2 className="text-xl font-semibold mb-4">Messages</h2>
-                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                    {messages.map((message) => (
-                      <div key={message.id} className={`p-2 rounded ${getMessageTypeClass(message.type)}`}>
-                        <p>{message.text}</p>
-                        <small className="text-gray-500">{message.timestamp.toLocaleTimeString()}</small>
-                      </div>
-                    ))}
+          {/* Connected Devices Card */}
+          <Card className="bg-white text-gray-900">
+            <CardContent className="p-4 h-full">
+              <h3 className="text-lg font-semibold mb-3">Connected Devices <span className="text-sm font-normal text-gray-600">{connectedDevices.length}</span></h3>
+              <div className="space-y-2 overflow-y-auto" style={{ maxHeight: 'calc(100% - 4rem)' }}>
+                {connectedDevices.map((device) => (
+                  <div key={device.id} className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      {getDeviceIcon(device.type)}
+                      <span className="ml-2 text-sm">{device.name}</span>
+                    </div>
+                    {hasPermission('edit') && (
+                      <Button variant="ghost" size="sm" onClick={() => disconnectDevice(device.id)}>
+                        Disconnect
+                      </Button>
+                    )}
                   </div>
-                  <form onSubmit={handleAddMessage} className="mt-4">
-                    <div className="flex flex-col space-y-2">
-                      <Input
-                        type="text"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Type a message..."
-                        className="flex-grow"
-                      />
-                      <div className="flex space-x-2">
-                        <select
-                          value={messageType}
-                          onChange={(e) => setMessageType(e.target.value as 'info' | 'alert' | 'question')}
-                          className="border rounded px-2 py-1"
-                        >
-                          <option value="info">Info</option>
-                          <option value="alert">Alert</option>
-                          <option value="question">Question</option>
-                        </select>
-                        <Button type="submit">Send</Button>
+                ))}
+              </div>
+              {hasPermission('edit') && (
+                <Button className="w-full mt-4 text-sm" onClick={() => connectDevice('New Device', 'smartphone')}>
+                  Connect New Device
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Messages Card */}
+          <Card className="bg-white text-gray-900">
+            <CardContent className="p-4 h-full flex flex-col">
+              <h3 className="text-lg font-semibold mb-3">Messages</h3>
+              <div className="overflow-y-auto flex-grow mb-4" style={{ maxHeight: '300px' }}>
+                <div className="space-y-2">
+                  {messages.map((message) => (
+                    <div key={message.id} className={`p-2 rounded relative ${
+                      message.type === 'alert' ? 'bg-red-600' : 
+                      message.type === 'question' ? 'bg-green-600' : 'bg-gray-700'
+                    }`}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute top-1 right-1 text-white hover:bg-red-700"
+                        onClick={() => deleteMessage(message.id)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                      <p className="text-sm font-medium text-white">{message.text}</p>
+                      <p className="text-xs text-gray-300 mt-1">
+                        {message.timestamp.toLocaleString()}
+                      </p>
+                      <div className="flex flex-wrap justify-end space-x-1 mt-1">
+                        <Button variant="ghost" size="sm" className="text-xs px-1.5 py-0.5 text-white">A</Button>
+                        <Button variant="ghost" size="sm" className="text-xs px-1.5 py-0.5 text-white">A</Button>
+                        <Button variant="ghost" size="sm" className="text-xs px-1.5 py-0.5 text-white">B</Button>
+                        <Button variant="ghost" size="sm" className="text-xs px-1.5 py-0.5 text-white">aA</Button>
+                        <Button variant="ghost" size="sm" className="text-xs px-1.5 py-0.5 text-white">Show</Button>
                       </div>
                     </div>
-                  </form>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+                  ))}
+                </div>
+              </div>
+              {hasPermission('addMessage') && (
+                <form onSubmit={handleAddMessage} className="mt-auto">
+                  <div className="flex space-x-2 mb-2">
+                    <Button
+                      type="button"
+                      onClick={() => setMessageType('info')}
+                      variant={messageType === 'info' ? 'default' : 'outline'}
+                      size="sm"
+                    >
+                      Info
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => setMessageType('alert')}
+                      variant={messageType === 'alert' ? 'default' : 'outline'}
+                      size="sm"
+                    >
+                      Alert
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => setMessageType('question')}
+                      variant={messageType === 'question' ? 'default' : 'outline'}
+                      size="sm"
+                    >
+                      Question
+                    </Button>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Input
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      placeholder="Type your message..."
+                      className="flex-grow"
+                    />
+                    <Button type="submit">Send</Button>
+                  </div>
+                </form>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Master Control Buttons */}
-          <div className="w-full">
+          <div className="lg:col-span-3 mb-4">
             <div className="flex flex-wrap justify-center gap-2">
               <Button onClick={playAll} variant="outline" size="sm" className="flex-grow sm:flex-grow-0">
                 <PlayCircle className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -1043,12 +1285,12 @@ export default function StageCueApp() {
           </div>
 
           {/* Progress Bar */}
-          <div className="w-full col-span-full">
+          <div className="lg:col-span-3">
             {renderProgressBar()}
           </div>
 
           {/* Timers Card */}
-          <div className="w-full">
+          <div className="lg:col-span-3">
             <Card className="bg-white text-gray-900 mt-4">
               <CardContent className="p-4">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
@@ -1066,6 +1308,28 @@ export default function StageCueApp() {
                         Upload Cue Sheet
                         <input id="file-upload" type="file" accept=".xlsx,.xls" onChange={handleFileUpload} className="sr-only" />
                       </label>
+                    )}
+                    {hasPermission('reset') && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-xs sm:text-sm bg-white text-red-600 hover:bg-red-100"
+                        onClick={resetAll}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Reset All
+                      </Button>
+                    )}
+                    {hasPermission('export') && (
+                      <Button 
+                        onClick={exportAnalytics} 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-xs sm:text-sm bg-blue-500 text-white hover:bg-blue-600"
+                      >
+                        <BarChart2 className="h-4 w-4 mr-2" />
+                        Export Analytics
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -1112,6 +1376,7 @@ export default function StageCueApp() {
                                     value={timer.duration}
                                     onChange={(e) => handleTimerChange(timer.id, 'duration', e.target.value)}
                                     onBlur={() => {
+                                      // Format on blur for better user experience
                                       const [minutes, seconds] = timer.duration.replace(/[^0-9:]/g, '').split(':').map(Number);
                                       const formattedDuration = `${minutes || 0}:${seconds ? seconds.toString().padStart(2, '0') : '00'}`;
                                       handleTimerChange(timer.id, 'duration', formattedDuration);
@@ -1146,15 +1411,38 @@ export default function StageCueApp() {
                                 )}
                               </td>
                               <td className="px-2 py-4 whitespace-nowrap">
-                                {editingTimer === timer.id ? (
-                                  <Button variant="ghost" size="sm" onClick={() => handleSaveTimer()}>
-                                    <Check className="h-4 w-4" />
+                                <div className="flex items-center space-x-1">
+                                  <Button variant="ghost" size="sm" onClick={() => resetTimer(timer.id)}>
+                                    <RotateCcw className="h-4 w-4" />
                                   </Button>
-                                ) : (
-                                  <Button variant="ghost" size="sm" onClick={() => handleEditTimer(timer.id)}>
-                                    <Edit2 className="h-4 w-4" />
+                                  <Button variant="ghost" size="sm" onClick={() => timer.isRunning ? pauseTimer(timer.id) : startTimer(timer.id)}>
+                                    {timer.isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                                   </Button>
-                                )}
+                                  <Button variant="ghost" size="sm" onClick={() => stopTimer(timer.id)}>
+                                    <StopCircle className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="sm" onClick={() => nextCue(timer.id)}>
+                                    <SkipForward className="h-4 w-4" />
+                                  </Button>
+                                  {editingTimer === timer.id ? (
+                                    <Button variant="ghost" size="sm" onClick={() => handleSaveTimer()}>
+                                      <Check className="h-4 w-4" />
+                                    </Button>
+                                  ) : (
+                                    <Button variant="ghost" size="sm" onClick={() => handleEditTimer(timer.id)}>
+                                      <Edit2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  <span className={`text-sm font-medium ${
+                                    isActive && timer.isRunning
+                                      ? isUnder60Seconds
+                                        ? 'text-red-600'
+                                        : 'text-green-600'
+                                      : ''
+                                  }`}>
+                                    {formatTime(timer.remainingTime)}
+                                  </span>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -1163,40 +1451,6 @@ export default function StageCueApp() {
                     </table>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Connected Devices Card */}
-          <div className="w-full mt-4">
-            <Card className="bg-white text-gray-900">
-              <CardContent className="p-4">
-                <h2 className="text-xl font-semibold mb-4">Connected Devices {connectedDevices.length}</h2>
-                <div className="space-y-2">
-                  {connectedDevices.map((device) => (
-                    <div key={device.id} className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        {getDeviceIcon(device.type)}
-                        <span className="ml-2">{device.name}</span>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => disconnectDevice(device.id)}
-                      >
-                        Disconnect
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-4"
-                  onClick={() => connectDevice(`Device-${Math.random().toString(36).substr(2, 9)}`, 'smartphone')}
-                >
-                  Connect New Device
-                </Button>
               </CardContent>
             </Card>
           </div>
