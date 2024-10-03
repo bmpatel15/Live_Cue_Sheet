@@ -13,6 +13,7 @@ import { useFirebase } from '@/contexts/FirebaseContext'
 //import AdminPanel from '@/components/AdminPanel'
 import { FirebaseError } from 'firebase/app'
 import CountdownDisplay from '@/components/CountdownDisplay'
+import Chat from '@/components/Chat'
 
 interface Timer {
   id: number
@@ -127,6 +128,10 @@ export default function StageCueApp() {
   const countdownWindowRef = useRef<Window | null>(null);
   // Add this new state variable
   const [totalElapsedTime, setTotalElapsedTime] = useState(0);
+  const [activeChat, setActiveChat] = useState<string | null>(null);
+  const startChat = (deviceId: string) => {
+    setActiveChat(deviceId);
+  };
 
   console.log("Current user role in StageCueApp:", userRole); // Add this line
 
@@ -1220,11 +1225,16 @@ export default function StageCueApp() {
                       {getDeviceIcon(device.type)}
                       <span className="ml-2 text-sm">{device.name}</span>
                     </div>
-                    {hasPermission('edit') && (
-                      <Button variant="ghost" size="sm" onClick={() => disconnectDevice(device.id)}>
-                        Disconnect
+                    <div>
+                      <Button variant="ghost" size="sm" onClick={() => startChat(device.id)}>
+                        Chat
                       </Button>
-                    )}
+                      {hasPermission('edit') && (
+                        <Button variant="ghost" size="sm" onClick={() => disconnectDevice(device.id)}>
+                          Disconnect
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1524,6 +1534,13 @@ export default function StageCueApp() {
           </div>
         </div>
       </div>
+      {activeChat && (
+        <Chat
+          receiverId={activeChat}
+          receiverName={connectedDevices.find(d => d.id === activeChat)?.name || 'Unknown'}
+          onClose={() => setActiveChat(null)}
+        />
+      )}
     </div>
   );
 }
