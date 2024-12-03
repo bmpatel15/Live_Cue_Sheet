@@ -83,22 +83,32 @@ const durationToSeconds = (duration: string): number => {
 */
 // Add these new functions near the top of your file, outside of the component
 const getDeviceName = () => {
-  const userAgent = navigator.userAgent;
-  if (/Android/i.test(userAgent)) return 'Android Device';
-  if (/iPhone|iPad|iPod/i.test(userAgent)) return 'iOS Device';
-  if (/Windows/i.test(userAgent)) return 'Windows PC';
-  if (/Mac/i.test(userAgent)) return 'Mac';
-  return 'Unknown Device';
+  if (typeof window === 'undefined') return 'Unknown Device';
+  try {
+    const userAgent = window.navigator.userAgent;
+    if (/Android/i.test(userAgent)) return 'Android Device';
+    if (/iPhone|iPad|iPod/i.test(userAgent)) return 'iOS Device';
+    if (/Windows/i.test(userAgent)) return 'Windows PC';
+    if (/Mac/i.test(userAgent)) return 'Mac';
+    return 'Unknown Device';
+  } catch {
+    return 'Unknown Device';
+  }
 };
 
 const getDeviceType = (): ConnectedDevice['type'] => {
-  const userAgent = navigator.userAgent;
-  if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
-    if (/tablet|ipad/i.test(userAgent)) return 'tablet';
-    return 'smartphone';
+  if (typeof window === 'undefined') return 'other';
+  try {
+    const userAgent = window.navigator.userAgent;
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
+      if (/tablet|ipad/i.test(userAgent)) return 'tablet';
+      return 'smartphone';
+    }
+    if (/Windows|Mac|Linux/i.test(userAgent)) return 'laptop';
+    return 'other';
+  } catch {
+    return 'other';
   }
-  if (/Windows|Mac|Linux/i.test(userAgent)) return 'laptop';
-  return 'other';
 };
 
 export default function StageCueApp() {
@@ -121,6 +131,16 @@ export default function StageCueApp() {
   const intervalRefs = useRef<{ [key: number]: NodeJS.Timeout | null }>({})
   const [, setTotalDuration] = useState(0)
   const [, setElapsedTime] = useState(0)
+  const [closedChats, setClosedChats] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const saved = localStorage.getItem('closedChats');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   //const [userRole, setUserRole] = useState<UserRole>('user')
   //const [, setIsAdminPanelOpen] = useState(false);
   const [newMessage, setNewMessage] = useState('');
@@ -129,7 +149,7 @@ export default function StageCueApp() {
   // Add this new state variable
   const [totalElapsedTime, setTotalElapsedTime] = useState(0);
   const [activeChat, setActiveChat] = useState<string | null>(null);
-  const [hasLoadedInitialMessages, setHasLoadedInitialMessages] = useState(false);
+  //const [hasLoadedInitialMessages, setHasLoadedInitialMessages] = useState(false);
 
   console.log("Current user role in StageCueApp:", userRole); // Add this line
 
@@ -152,18 +172,6 @@ export default function StageCueApp() {
 
     return () => unsubscribe();
   }, [auth, firestore, router]);
-
-  useEffect(() => {
-    if (user) {
-      // Set isInitialLoad to false after a longer delay and only if there's no active chat
-      const timer = setTimeout(() => {
-        if (!activeChat) {  // Only update if no chat is active
-          setHasLoadedInitialMessages(false);
-        }
-      }, 3000);  // Increased to 3 seconds
-      return () => clearTimeout(timer);
-    }
-  }, [user, activeChat]);  // Add activeChat as dependency
 
   useEffect(() => {
     if (!firestore || !user) return;
@@ -223,9 +231,7 @@ export default function StageCueApp() {
 
   // Add this useEffect in StageCueApp
   useEffect(() => {
-    if (!firestore || !user) return;
-  
-    console.log('Setting up notification listener for user:', user.uid);
+    if (!firestore || !user || !initialLoadComplete) return;
   
     const chatsQuery = query(
       collection(firestore, 'chats'),
@@ -235,28 +241,38 @@ export default function StageCueApp() {
     );
   
     const unsubscribe = onSnapshot(chatsQuery, (snapshot) => {
-      if (!hasLoadedInitialMessages) {
-        setHasLoadedInitialMessages(true);
-        return;
-      }
-
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'added') {
           const message = change.doc.data();
-          console.log('New message received:', message);
-          
-          // Find the sender's device info
+          console.log('New message received:', message); // Debug log
           const senderDevice = connectedDevices.find(d => d.userId === message.senderId);
           if (senderDevice) {
-            console.log('Opening chat with:', senderDevice.id);
-            setActiveChat(senderDevice.id);
+            const currentTime = Date.now();
+            const messageTime = message.timestamp.toMillis();
+            console.log('Time comparison:', { messageTime, currentTime }); // Debug log
+            
+            // If message is within last 5 seconds, show chat
+            if (currentTime - messageTime < 5000) {
+              console.log('Opening chat for device:', senderDevice.id); // Debug log
+              setActiveChat(senderDevice.id);
+            }
           }
         }
       });
     });
   
     return () => unsubscribe();
-  }, [firestore, user, connectedDevices, hasLoadedInitialMessages]);
+  }, [firestore, user, connectedDevices, initialLoadComplete]);
+  
+  useEffect(() => {
+    if (user) {
+      setInitialLoadComplete(false);
+      const timer = setTimeout(() => {
+        setInitialLoadComplete(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [user]);
 
   // Add the new useEffect here
   useEffect(() => {
@@ -1179,6 +1195,10 @@ export default function StageCueApp() {
   const startChat = (deviceId: string) => {
     if (!user) return;
     setActiveChat(deviceId);
+    const newClosedChats = new Set(Array.from(closedChats));
+    newClosedChats.delete(deviceId);
+    setClosedChats(newClosedChats);
+    localStorage.setItem('closedChats', JSON.stringify(Array.from(newClosedChats)));
   };
 
   return (
@@ -1591,7 +1611,15 @@ export default function StageCueApp() {
           receiverId={activeChat}
           receiverName={connectedDevices.find(d => d.id === activeChat)?.name || 'Unknown'}
           receiverUserId={connectedDevices.find(d => d.id === activeChat)?.userId || ''}
-          onClose={() => setActiveChat(null)}
+          onClose={() => {
+            const newClosedChats = new Set(Array.from(closedChats));
+            if (activeChat) {
+              newClosedChats.add(activeChat);
+            }
+            setClosedChats(newClosedChats);
+            localStorage.setItem('closedChats', JSON.stringify(Array.from(newClosedChats)));
+            setActiveChat(null);
+          }}
         />
       )}
     </div>
