@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Play, Pause, SkipForward, Monitor, Smartphone, Tv, FileUp, StopCircle, RotateCcw, Edit2, Check, User as UserIcon, Trash2, X, PlayCircle, PauseCircle, StopCircle as StopCircleIcon, RotateCcw as RotateCcwIcon, SkipForward as SkipForwardIcon, BarChart2, Laptop, Tablet, HelpCircle } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { onAuthStateChanged, User, signOut } from 'firebase/auth'
-import { doc, onSnapshot, updateDoc, setDoc, collection, query, orderBy, addDoc, getDoc, deleteDoc, getDocs, deleteDoc as firestoreDeleteDoc } from 'firebase/firestore'
+import { doc, onSnapshot, updateDoc, setDoc, collection, query, orderBy, addDoc, getDoc, deleteDoc, getDocs, deleteDoc as firestoreDeleteDoc, where, limit } from 'firebase/firestore'
 import { useFirebase } from '@/contexts/FirebaseContext'
 //import AdminPanel from '@/components/AdminPanel'
 import { FirebaseError } from 'firebase/app'
@@ -211,6 +211,32 @@ export default function StageCueApp() {
       return () => unsubscribe();
     }
   }, [user, firestore]);
+
+  // Add this useEffect in StageCueApp
+useEffect(() => {
+  if (!firestore || !user) return;
+
+  const chatsQuery = query(
+    collection(firestore, 'chats'),
+    where('receiverId', '==', user.uid),
+    orderBy('timestamp', 'desc'),
+    limit(1)
+  );
+
+  const unsubscribe = onSnapshot(chatsQuery, (snapshot) => {
+    snapshot.docChanges().forEach((change) => {
+      if (change.type === 'added') {
+        const message = change.doc.data();
+        // Only open chat if it's not already open
+        if (!activeChat || activeChat !== message.senderId) {
+          setActiveChat(message.senderId);
+        }
+      }
+    });
+  });
+
+  return () => unsubscribe();
+}, [firestore, user]);
 
   // Add the new useEffect here
   useEffect(() => {
