@@ -130,6 +130,7 @@ export default function StageCueApp() {
   const [totalElapsedTime, setTotalElapsedTime] = useState(0);
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const startChat = (deviceId: string) => {
+    if (!user) return;
     setActiveChat(deviceId);
   };
 
