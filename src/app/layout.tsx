@@ -1,7 +1,7 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
 import "./globals.css";
-import { FirebaseProvider } from '@/contexts/FirebaseContext';
+import { Providers } from './providers';
 
 export const metadata: Metadata = {
   title: "Stage Cue App",
@@ -16,9 +16,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <FirebaseProvider>
+        <Providers>
           {children}
-        </FirebaseProvider>
+        </Providers>
       </body>
     </html>
   )
