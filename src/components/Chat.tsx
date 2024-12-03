@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useFirebase } from '@/contexts/FirebaseContext';
-import { collection, addDoc, query, orderBy, onSnapshot, where, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, where, Timestamp, deleteDoc, doc } from 'firebase/firestore';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { X, Send } from 'lucide-react';
@@ -123,13 +123,43 @@ export default function Chat({ receiverName, receiverUserId, onClose }: ChatProp
     });
   };
 
+  const clearChat = async () => {
+    if (!firestore || !currentUser) return;
+    
+    setIsLoading(true);
+    try {
+      // Delete each message from Firestore
+      const deletePromises = messages.map(msg => 
+        deleteDoc(doc(firestore, 'chats', msg.id))
+      );
+      
+      await Promise.all(deletePromises);
+      setMessages([]); // Clear local state after successful deletion
+    } catch (error) {
+      console.error('Error clearing chat:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="fixed bottom-4 right-4 w-80 h-96 bg-white shadow-lg rounded-lg flex flex-col">
       <div className="p-3 bg-gray-100 rounded-t-lg flex justify-between items-center border-b">
         <h3 className="font-semibold text-sm">{receiverName}</h3>
-        <Button onClick={onClose} variant="ghost" size="sm">
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={clearChat}
+            disabled={isLoading || messages.length === 0}
+            className="text-xs text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors"
+          >
+            Clear chat
+          </Button>
+          <Button onClick={onClose} variant="ghost" size="sm">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
       
       <div className="flex-grow overflow-y-auto p-4 space-y-3">

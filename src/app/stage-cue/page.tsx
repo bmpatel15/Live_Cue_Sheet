@@ -1201,6 +1201,20 @@ export default function StageCueApp() {
     localStorage.setItem('closedChats', JSON.stringify(Array.from(newClosedChats)));
   };
 
+  // Add this function near your other message-related functions
+  const clearAllMessages = async () => {
+    if (!firestore) return;
+    try {
+      const messagesRef = collection(firestore, 'events', 'currentEvent', 'messages');
+      const snapshot = await getDocs(messagesRef);
+      const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+      setMessages([]); // Clear local state
+    } catch (error) {
+      console.error("Error clearing all messages:", error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="container mx-auto p-2 sm:p-4">
@@ -1334,7 +1348,18 @@ export default function StageCueApp() {
           {/* Messages Card */}
           <Card className="bg-white text-gray-900">
             <CardContent className="p-4 h-full flex flex-col">
-              <h3 className="text-lg font-semibold mb-3">Messages</h3>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-lg font-semibold">Messages</h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearAllMessages}
+                  disabled={messages.length === 0}
+                  className="text-xs text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  Clear All
+                </Button>
+              </div>
               <div className="overflow-y-auto flex-grow mb-4" style={{ maxHeight: '300px' }}>
                 <div className="space-y-2">
                   {messages.map((message) => (
