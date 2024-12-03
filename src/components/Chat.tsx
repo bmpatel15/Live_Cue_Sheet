@@ -18,10 +18,11 @@ interface ChatMessage {
 interface ChatProps {
   receiverId: string;
   receiverName: string;
+  receiverUserId: string;
   onClose: () => void;
 }
 
-export default function Chat({ receiverId, receiverName, onClose }: ChatProps) {
+export default function Chat({ receiverId, receiverName, receiverUserId, onClose }: ChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -66,17 +67,21 @@ export default function Chat({ receiverId, receiverName, onClose }: ChatProps) {
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !firestore || !currentUser) return;
-
+  
     setIsLoading(true);
     try {
-      await addDoc(collection(firestore, 'chats'), {
+      const messageData = {
         senderId: currentUser.uid,
         senderName: currentUser.email,
-        receiverId: receiverId,
+        receiverId: receiverUserId, // Use receiverUserId instead of receiverId
         content: newMessage.trim(),
         timestamp: Timestamp.now(),
-        participants: [currentUser.uid, receiverId].sort().join('_')
-      });
+        participants: [currentUser.uid, receiverUserId].sort().join('_')
+      };
+  
+      console.log('Sending message:', messageData);
+      
+      await addDoc(collection(firestore, 'chats'), messageData);
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);

@@ -213,30 +213,36 @@ export default function StageCueApp() {
   }, [user, firestore]);
 
   // Add this useEffect in StageCueApp
-useEffect(() => {
-  if (!firestore || !user) return;
-
-  const chatsQuery = query(
-    collection(firestore, 'chats'),
-    where('receiverId', '==', user.uid),
-    orderBy('timestamp', 'desc'),
-    limit(1)
-  );
-
-  const unsubscribe = onSnapshot(chatsQuery, (snapshot) => {
-    snapshot.docChanges().forEach((change) => {
-      if (change.type === 'added') {
-        const message = change.doc.data();
-        // Only open chat if it's not already open
-        if (!activeChat || activeChat !== message.senderId) {
-          setActiveChat(message.senderId);
+  useEffect(() => {
+    if (!firestore || !user) return;
+  
+    console.log('Setting up notification listener for user:', user.uid);
+  
+    const chatsQuery = query(
+      collection(firestore, 'chats'),
+      where('receiverId', '==', user.uid),
+      orderBy('timestamp', 'desc'),
+      limit(1)
+    );
+  
+    const unsubscribe = onSnapshot(chatsQuery, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const message = change.doc.data();
+          console.log('New message received:', message);
+          
+          // Find the sender's device info
+          const senderDevice = connectedDevices.find(d => d.userId === message.senderId);
+          if (senderDevice) {
+            console.log('Opening chat with:', senderDevice.id);
+            setActiveChat(senderDevice.id);
+          }
         }
-      }
+      });
     });
-  });
-
-  return () => unsubscribe();
-}, [firestore, user]);
+  
+    return () => unsubscribe();
+  }, [firestore, user, connectedDevices]);
 
   // Add the new useEffect here
   useEffect(() => {
@@ -1565,6 +1571,7 @@ useEffect(() => {
         <Chat
           receiverId={activeChat}
           receiverName={connectedDevices.find(d => d.id === activeChat)?.name || 'Unknown'}
+          receiverUserId={connectedDevices.find(d => d.id === activeChat)?.userId || activeChat}
           onClose={() => setActiveChat(null)}
         />
       )}
