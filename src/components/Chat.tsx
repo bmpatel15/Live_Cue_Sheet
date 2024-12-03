@@ -7,12 +7,12 @@ import { X, Send } from 'lucide-react';
 
 interface ChatMessage {
   id: string;
+  content: string;
+  participants: string;
+  receiverId: string;
   senderId: string;
   senderName: string;
-  receiverId: string;
-  content: string;
   timestamp: Timestamp;
-  participants: string;
 }
 
 interface ChatProps {
@@ -41,28 +41,47 @@ export default function Chat({ receiverId, receiverName, receiverUserId, onClose
   useEffect(() => {
     if (!firestore || !currentUser) return;
 
+    const participantsArray = [currentUser.uid, receiverUserId].sort();
+    const participantString = participantsArray.join('_');
+  
+    console.log('Setting up chat listener:', {
+      currentUserId: currentUser.uid,
+      receiverUserId: receiverUserId,
+      participantString: participantString
+    });
+
     // Create a compound query to get only relevant messages
     const chatQuery = query(
       collection(firestore, 'chats'),
-      where('participants', '==', [currentUser.uid, receiverId].sort().join('_')),
+      where('participants', '==', participantString),
       orderBy('timestamp', 'asc')
     );
-
+  
     const unsubscribe = onSnapshot(chatQuery, (snapshot) => {
-      const fetchedMessages = snapshot.docs.map(doc => {
-        const data = doc.data() as DocumentData;
-        return {
-          id: doc.id,
-          ...data,
-          timestamp: data.timestamp instanceof Timestamp ? data.timestamp : Timestamp.fromDate(data.timestamp)
-        } as ChatMessage;
+      console.log('Chat snapshot received:', {
+        numberOfMessages: snapshot.docs.length,
+        participantString: participantString,
+        messages: snapshot.docs.map(doc => doc.data())
       });
+  
+      const fetchedMessages = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: doc.data().timestamp instanceof Timestamp ? 
+          doc.data().timestamp : Timestamp.fromDate(doc.data().timestamp)
+      }) as ChatMessage);
+  
       setMessages(fetchedMessages);
       scrollToBottom();
+    }, (error) => {
+      console.error('Chat listener error:', error);
     });
-
-    return () => unsubscribe();
-  }, [firestore, currentUser, receiverId]);
+  
+    return () => {
+      console.log('Cleaning up chat listener');
+      unsubscribe();
+    };
+  }, [firestore, currentUser, receiverUserId]);
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,17 +89,24 @@ export default function Chat({ receiverId, receiverName, receiverUserId, onClose
   
     setIsLoading(true);
     try {
+      const participantsArray = [currentUser.uid, receiverUserId].sort();
+      const participantString = participantsArray.join('_');
+      
+      console.log('Sending message with data:', {
+        currentUserId: currentUser.uid,
+        receiverUserId: receiverUserId,
+        participantString: participantString
+      });
+  
       const messageData = {
         senderId: currentUser.uid,
         senderName: currentUser.email,
-        receiverId: receiverUserId, // Use receiverUserId instead of receiverId
+        receiverId: receiverUserId,
         content: newMessage.trim(),
         timestamp: Timestamp.now(),
-        participants: [currentUser.uid, receiverUserId].sort().join('_')
+        participants: participantString
       };
   
-      console.log('Sending message:', messageData);
-      
       await addDoc(collection(firestore, 'chats'), messageData);
       setNewMessage('');
     } catch (error) {

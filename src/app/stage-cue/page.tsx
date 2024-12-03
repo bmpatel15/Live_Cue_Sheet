@@ -129,10 +129,8 @@ export default function StageCueApp() {
   // Add this new state variable
   const [totalElapsedTime, setTotalElapsedTime] = useState(0);
   const [activeChat, setActiveChat] = useState<string | null>(null);
-  const startChat = (deviceId: string) => {
-    if (!user) return;
-    setActiveChat(deviceId);
-  };
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [hasLoadedInitialMessages, setHasLoadedInitialMessages] = useState(false);
 
   console.log("Current user role in StageCueApp:", userRole); // Add this line
 
@@ -155,6 +153,18 @@ export default function StageCueApp() {
 
     return () => unsubscribe();
   }, [auth, firestore, router]);
+
+  useEffect(() => {
+    if (user) {
+      // Set isInitialLoad to false after a longer delay and only if there's no active chat
+      const timer = setTimeout(() => {
+        if (!activeChat) {  // Only update if no chat is active
+          setIsInitialLoad(false);
+        }
+      }, 3000);  // Increased to 3 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [user, activeChat]);  // Add activeChat as dependency
 
   useEffect(() => {
     if (!firestore || !user) return;
@@ -226,6 +236,11 @@ export default function StageCueApp() {
     );
   
     const unsubscribe = onSnapshot(chatsQuery, (snapshot) => {
+      if (!hasLoadedInitialMessages) {
+        setHasLoadedInitialMessages(true);
+        return;
+      }
+
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'added') {
           const message = change.doc.data();
@@ -242,7 +257,7 @@ export default function StageCueApp() {
     });
   
     return () => unsubscribe();
-  }, [firestore, user, connectedDevices]);
+  }, [firestore, user, connectedDevices, hasLoadedInitialMessages]);
 
   // Add the new useEffect here
   useEffect(() => {
@@ -1162,6 +1177,11 @@ export default function StageCueApp() {
     updateCountdownWindow();
   };
 
+  const startChat = (deviceId: string) => {
+    if (!user) return;
+    setActiveChat(deviceId);
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="container mx-auto p-2 sm:p-4">
@@ -1571,7 +1591,7 @@ export default function StageCueApp() {
         <Chat
           receiverId={activeChat}
           receiverName={connectedDevices.find(d => d.id === activeChat)?.name || 'Unknown'}
-          receiverUserId={connectedDevices.find(d => d.id === activeChat)?.userId || activeChat}
+          receiverUserId={connectedDevices.find(d => d.id === activeChat)?.userId || ''}
           onClose={() => setActiveChat(null)}
         />
       )}
