@@ -129,7 +129,6 @@ export default function StageCueApp() {
   // Add this new state variable
   const [totalElapsedTime, setTotalElapsedTime] = useState(0);
   const [activeChat, setActiveChat] = useState<string | null>(null);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [hasLoadedInitialMessages, setHasLoadedInitialMessages] = useState(false);
 
   console.log("Current user role in StageCueApp:", userRole); // Add this line
@@ -159,7 +158,7 @@ export default function StageCueApp() {
       // Set isInitialLoad to false after a longer delay and only if there's no active chat
       const timer = setTimeout(() => {
         if (!activeChat) {  // Only update if no chat is active
-          setIsInitialLoad(false);
+          setHasLoadedInitialMessages(false);
         }
       }, 3000);  // Increased to 3 seconds
       return () => clearTimeout(timer);

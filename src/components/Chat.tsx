@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useFirebase } from '@/contexts/FirebaseContext';
-import { collection, addDoc, query, orderBy, onSnapshot, where, Timestamp, DocumentData } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, where, Timestamp } from 'firebase/firestore';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { X, Send } from 'lucide-react';
@@ -22,7 +22,7 @@ interface ChatProps {
   onClose: () => void;
 }
 
-export default function Chat({ receiverId, receiverName, receiverUserId, onClose }: ChatProps) {
+export default function Chat({ receiverName, receiverUserId, onClose }: ChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
