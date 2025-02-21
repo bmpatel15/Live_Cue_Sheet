@@ -1,5 +1,4 @@
 "use client";
-console.log("Hello from outer space");
 
 import React, { useState, useEffect, useRef, FormEvent } from "react";
 import { useRouter } from "next/navigation";
